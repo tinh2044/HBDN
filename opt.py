@@ -49,9 +49,7 @@ def train_one_epoch(
             metric_logger.update(lr=param_group["lr"])
 
         if eval_in_train:
-            metrics = compute_metrics(
-                targets=targets, preds=pred_l, device=str(args.device)
-            )
+            metrics = compute_metrics(targets, pred_l, str(args.device))
             for metric_name, metric_value in metrics.items():
                 metric_logger.update(**{f"{metric_name}": metric_value})
 
@@ -84,9 +82,7 @@ def evaluate_fn(
 
             pred_l = model(inputs)
 
-            metrics = compute_metrics(
-                targets=targets, preds=pred_l, device=str(args.device)
-            )
+            metrics = compute_metrics(targets, pred_l, str(args.device))
 
             for metric_name, metric_value in metrics.items():
                 metric_logger.update(**{f"{metric_name}": metric_value})
