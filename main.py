@@ -161,6 +161,10 @@ def main(args, cfg):
         if "flops" in model_info:
             print(f"  FLOPs: {model_info['flops_str']}")
             print(f"  MACs: {model_info['macs_str']}")
+            print(f"  Input shape: {input_shape}")
+            print(
+                f"  Output shape: {(args.batch_size, 3, cfg_data['image_size'] * cfg_data['scale'], cfg_data['image_size'] * cfg_data['scale'])}"
+            )
         print()
 
     if args.finetune:

@@ -4,7 +4,7 @@ data:
   test_dir: "test"
   input_dir: "LR_bicubic/X2"
   target_dir: "HR"  
-  image_size: 64
+  image_size: 256
   batch_size: 4
   num_workers: 4
   max_len: 1  
