@@ -144,11 +144,27 @@ class SRLosses(nn.Module):
         if pred is None or gt is None:
             raise ValueError("pred and gt must be provided")
 
-        l_perc = self.weights["perc"] * self.vgg(pred, gt)
-        l_grad = self.weights["grad"] * self.grad(pred, gt)
-        l_l1 = self.weights["l1"] * self.charbonnier(pred, gt)
-        # SSIM is a similarity index in [0,1]; convert to a loss as (1 - ssim)
-        l_ssim = self.weights["ssim"] * (1.0 - self.ssim(pred, gt))
+        # Compute losses conditionally to avoid wasted compute when weight=0
+        if self.weights.get("l1", 0) > 0:
+            l_l1 = self.weights["l1"] * self.charbonnier(pred, gt)
+        else:
+            l_l1 = torch.tensor(0.0, device=pred.device)
+
+        if self.weights.get("perc", 0) > 0:
+            l_perc = self.weights["perc"] * self.vgg(pred, gt)
+        else:
+            l_perc = torch.tensor(0.0, device=pred.device)
+
+        if self.weights.get("grad", 0) > 0:
+            l_grad = self.weights["grad"] * self.grad(pred, gt)
+        else:
+            l_grad = torch.tensor(0.0, device=pred.device)
+
+        if self.weights.get("ssim", 0) > 0:
+            # SSIM is a similarity index in [0,1]; convert to a loss as (1 - ssim)
+            l_ssim = self.weights["ssim"] * (1.0 - self.ssim(pred, gt))
+        else:
+            l_ssim = torch.tensor(0.0, device=pred.device)
 
         total_loss = l_l1 + l_perc + l_grad + l_ssim
 

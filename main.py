@@ -115,6 +115,8 @@ def main(args, cfg):
         train_sampler = DistributedSampler(train_data, shuffle=True)
         test_sampler = DistributedSampler(test_data, shuffle=False)
 
+    args.scale = cfg_data["scale"]
+
     train_dataloader = DataLoader(
         train_data,
         batch_size=args.batch_size,

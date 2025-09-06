@@ -48,14 +48,24 @@ def train_one_epoch(
         for param_group in optimizer.param_groups:
             metric_logger.update(lr=param_group["lr"])
 
+        # For logging/metrics and image saving, clamp to [0,1]
+        pred_vis = pred_l.clamp(0.0, 1.0)
+
         if eval_in_train:
-            metrics = compute_metrics(targets, pred_l, str(args.device))
+            metrics = compute_metrics(
+                targets,
+                pred_vis,
+                str(args.device),
+                scale=args.scale,
+                crop_border=True,
+                y_channel=True,
+            )
             for metric_name, metric_value in metrics.items():
                 metric_logger.update(**{f"{metric_name}": metric_value})
 
         if batch_idx % (print_freq * 5) == 0:
             save_sample_images(
-                inputs, pred_l, targets, batch_idx, epoch, args.output_dir
+                inputs, pred_vis, targets, batch_idx, epoch, args.output_dir
             )
 
     metric_logger.synchronize_between_processes()
@@ -86,15 +96,23 @@ def evaluate_fn(
             filenames = batch["filenames"]
 
             pred_l = model(inputs)
+            pred_vis = pred_l.clamp(0.0, 1.0)
 
-            metrics = compute_metrics(targets, pred_l, str(args.device))
+            metrics = compute_metrics(
+                targets,
+                pred_vis,
+                str(args.device),
+                scale=args.scale,
+                crop_border=True,
+                y_channel=True,
+            )
 
             for metric_name, metric_value in metrics.items():
                 metric_logger.update(**{f"{metric_name}": metric_value})
 
             if args.save_images:
                 save_eval_images(
-                    inputs, pred_l, targets, filenames, epoch, args.output_dir
+                    inputs, pred_vis, targets, filenames, epoch, args.output_dir
                 )
 
     metric_logger.synchronize_between_processes()

@@ -21,18 +21,18 @@ model:
   
 loss_weight:
       l1: 1.0             
-      perc: 0.01          
-      ssim: 1.0         
-      grad: 0.5              
+      perc: 0.0          
+      ssim: 0.0         
+      grad: 0.0              
 
 training:
   model_dir: "./outputs_HBDN_x2"
 
   optimization:
     optimizer:
-      name: "AdamW"
-      lr: 0.0001        
-      weight_decay: 0.0001
+      name: "Adam"
+      lr: 0.0002        
+      weight_decay: 0.0
       betas: [0.9, 0.999]
 
     scheduler:
