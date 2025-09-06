@@ -7,6 +7,7 @@ from collections import defaultdict, deque
 import torch
 import torch.distributed as dist
 from loguru import logger
+import re
 
 from utils import is_dist_avail_and_initialized
 
@@ -37,32 +38,24 @@ class SmoothedValue(object):
 
     @property
     def median(self):
-        if len(self.deque) == 0:
-            return 0.0
         d = torch.tensor(list(self.deque))
         return d.median().item()
 
     @property
     def avg(self):
-        if len(self.deque) == 0:
-            return 0.0
         d = torch.tensor(list(self.deque), dtype=torch.float32)
         return d.mean().item()
 
     @property
     def global_avg(self):
-        return self.total / (self.count + 0.00001)
+        return self.total / self.count
 
     @property
     def max(self):
-        if len(self.deque) == 0:
-            return 0.0
         return max(self.deque)
 
     @property
     def value(self):
-        if len(self.deque) == 0:
-            return 0.0
         return self.deque[-1]
 
     def __str__(self):
@@ -76,11 +69,10 @@ class SmoothedValue(object):
 
 
 class MetricLogger(object):
-    def __init__(self, delimiter=", ", log_dir="logs", file_name="", use_colors=True):
+    def __init__(self, delimiter=", ", log_file=""):
         self.meters = defaultdict(SmoothedValue)
         self.delimiter = delimiter
-        self.logger = Logger(log_dir=log_dir, file_name=file_name)
-        self.use_colors = use_colors
+        self.logger = Logger(log_file=log_file)
 
         self.color_schemes = {
             "loss": {"key": "\033[91m", "value": "\033[0m"},
@@ -90,6 +82,10 @@ class MetricLogger(object):
             "memory": {"key": "\033[95m", "value": "\033[0m"},
             "eta": {"key": "\033[92m", "value": "\033[0m"},
             "step": {"key": "\033[1m", "value": "\033[0m"},
+            "accuracy": {"key": "\033[92m", "value": "\033[0m"},
+            "precision": {"key": "\033[94m", "value": "\033[0m"},
+            "recall": {"key": "\033[95m", "value": "\033[0m"},
+            "f1": {"key": "\033[93m", "value": "\033[0m"},
             "default": {"key": "\033[0m", "value": "\033[0m"},
         }
 
@@ -112,13 +108,11 @@ class MetricLogger(object):
     def __str__(self):
         loss_str = []
         for name, meter in self.meters.items():
-            if self.use_colors:
-                color_scheme = self._get_color_scheme(name)
-                colored_name = f"{color_scheme['key']}{name}{color_scheme['value']}"
-                colored_value = f"{color_scheme['value']}{str(meter)}"
-                loss_str.append(f"{colored_name}: {colored_value}")
-            else:
-                loss_str.append("{}: {}".format(name, str(meter)))
+            color_scheme = self._get_color_scheme(name)
+            colored_name = f"{color_scheme['key']}{name}{color_scheme['value']}"
+            colored_value = f"{color_scheme['value']}{str(meter)}"
+            loss_str.append(f"{colored_name}: {colored_value}")
+
         return self.delimiter.join(loss_str)
 
     def _get_color_scheme(self, metric_name):
@@ -190,74 +184,29 @@ class MetricLogger(object):
             self.logger.info(final_str)
 
     def _format_log(self, i, total_len, eta_string, iter_time, data_time, MB):
-        if self.use_colors:
-            step_color = self.color_schemes["step"]["key"]
-            eta_color = self.color_schemes["eta"]["key"]
-            time_color = self.color_schemes["time"]["key"]
-            data_color = self.color_schemes["data"]["key"]
-            memory_color = self.color_schemes["memory"]["key"]
-            reset_color = self.color_schemes["default"]["value"]
+        step_color = self.color_schemes["step"]["key"]
+        eta_color = self.color_schemes["eta"]["key"]
+        time_color = self.color_schemes["time"]["key"]
+        data_color = self.color_schemes["data"]["key"]
+        memory_color = self.color_schemes["memory"]["key"]
+        reset_color = self.color_schemes["default"]["value"]
 
-            if torch.cuda.is_available():
-                return f"{step_color}Step [{i}/{total_len}]{reset_color}{self.delimiter}{eta_color}ETA: {eta_string}{reset_color}{self.delimiter}{str(self)}{self.delimiter}{time_color}Time: {str(iter_time)}{reset_color}{self.delimiter}{data_color}Data: {str(data_time)}{reset_color}{self.delimiter}{memory_color}Max Memory: {torch.cuda.max_memory_allocated() / MB:.0f}MB{reset_color}"
-            else:
-                return f"{step_color}Step [{i}/{total_len}]{reset_color}{self.delimiter}{eta_color}ETA: {eta_string}{reset_color}{self.delimiter}{str(self)}{self.delimiter}{time_color}Time: {str(iter_time)}{reset_color}{self.delimiter}{data_color}Data: {str(data_time)}{reset_color}"
+        if torch.cuda.is_available():
+            return f"{step_color}Step [{i}/{total_len}]{reset_color}{self.delimiter}{eta_color}ETA: {eta_string}{reset_color}{self.delimiter}{str(self)}{self.delimiter}{time_color}Time: {str(iter_time)}{reset_color}{self.delimiter}{data_color}Data: {str(data_time)}{reset_color}{self.delimiter}{memory_color}Max Memory: {torch.cuda.max_memory_allocated() / MB:.0f}MB{reset_color}"
         else:
-            if torch.cuda.is_available():
-                return "Step [{}/{}]{}ETA: {}{}{}{}Time: {}{}Data: {}{}Max Memory: {:.0f}MB".format(
-                    i,
-                    total_len,
-                    self.delimiter,
-                    eta_string,
-                    self.delimiter,
-                    str(self),
-                    self.delimiter,
-                    str(iter_time),
-                    self.delimiter,
-                    str(data_time),
-                    self.delimiter,
-                    torch.cuda.max_memory_allocated() / MB,
-                )
-            else:
-                return "Step [{}/{}]{}ETA: {}{}{}{}Time: {}{}Data: {}".format(
-                    i,
-                    total_len,
-                    self.delimiter,
-                    eta_string,
-                    self.delimiter,
-                    str(self),
-                    self.delimiter,
-                    str(iter_time),
-                    self.delimiter,
-                    str(data_time),
-                )
+            return f"{step_color}Step [{i}/{total_len}]{reset_color}{self.delimiter}{eta_color}ETA: {eta_string}{reset_color}{self.delimiter}{str(self)}{self.delimiter}{time_color}Time: {str(iter_time)}{reset_color}{self.delimiter}{data_color}Data: {str(data_time)}{reset_color}"
 
 
 class Logger:
-    def __init__(self, log_dir="logs", file_name=""):
-        # Determine if we're in distributed mode and whether this is the main process
+    def __init__(self, log_file):
         is_ddp = is_dist_avail_and_initialized()
         current_rank = dist.get_rank() if is_ddp else 0
         is_main_process = current_rank == 0
+        self.log_file = log_file if is_main_process else None
 
-        # If no log_dir is provided on non-main ranks, avoid any filesystem or logger reconfiguration
-        if log_dir is None and not is_main_process:
-            self.log_file = None
+        if self.log_file is None:
             return
 
-        # Default the log directory if None on main process
-        if log_dir is None:
-            log_dir = "logs"
-
-        os.makedirs(log_dir, exist_ok=True)
-
-        if file_name:
-            self.log_file = os.path.join(log_dir, file_name)
-        else:
-            timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            self.log_file = os.path.join(log_dir, f"log_{timestamp}.log")
-
-        # Configure loguru sinks only once per process
         if not getattr(Logger, "_configured", False):
             logger.remove()
             logger.add(
@@ -293,3 +242,13 @@ class Logger:
     @staticmethod
     def error(msg):
         logger.error(msg)
+
+    @staticmethod
+    def _strip_ansi(text):
+        ansi_re = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+        return ansi_re.sub("", text)
+
+    def _file_formatter(self, record):
+        time_str = record["time"].strftime("%Y-%m-%d %H:%M:%S")
+        message = self._strip_ansi(record["message"])
+        return f"{time_str} | {message}\n"

@@ -12,13 +12,13 @@ def train_one_epoch(
     optimizer,
     loss_fn,
     epoch,
+    log_file,
     print_freq=10,
-    log_dir="logs",
     eval_in_train=False,
 ):
     model.train()
 
-    metric_logger = MetricLogger(delimiter="  ", log_dir=log_dir)
+    metric_logger = MetricLogger(delimiter="  ", log_file=log_file)
     metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
     header = f"Train epoch: [{epoch}]"
 
@@ -65,11 +65,16 @@ def train_one_epoch(
 
 
 def evaluate_fn(
-    args, data_loader, model, epoch, print_freq=100, results_path=None, log_dir="logs"
+    args,
+    data_loader,
+    model,
+    epoch,
+    log_file,
+    print_freq=100,
 ):
     model.eval()
 
-    metric_logger = MetricLogger(delimiter="  ", log_dir=log_dir)
+    metric_logger = MetricLogger(delimiter="  ", log_file=log_file)
     header = f"Test: [{epoch}]"
 
     with torch.no_grad():

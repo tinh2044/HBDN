@@ -69,7 +69,11 @@ def get_args_parser():
 
 def main(args, cfg):
     model_dir = cfg["training"]["model_dir"]
-    log_dir = f"{model_dir}/log"
+    log_dir = f"{model_dir}"
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(
+        log_dir, f"run_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
+    )
 
     # Distributed setup
     is_distributed, rank, local_rank, world_size = utils.setup_distributed()
@@ -247,8 +251,7 @@ def main(args, cfg):
             model,
             epoch=0,
             print_freq=args.print_freq,
-            results_path=f"{model_dir}/test_results.json",
-            log_dir=f"{log_dir}/eval/test",
+            log_file=log_file,
         )
         if utils.is_main_process():
             print(
@@ -276,7 +279,7 @@ def main(args, cfg):
             loss_fn,
             epoch,
             print_freq=args.print_freq,
-            log_dir=f"{log_dir}/train",
+            log_file=log_file,
             eval_in_train=args.eval_in_train,
         )
         scheduler.step()
@@ -304,7 +307,7 @@ def main(args, cfg):
                 model,
                 epoch,
                 print_freq=args.print_freq,
-                log_dir=f"{log_dir}/test",
+                log_file=log_file,
             )
 
             if test_results.get("psnr", 0) > best_psnr:
