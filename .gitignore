@@ -1,0 +1,13 @@
+__pycache__/
+.history/
+data/
+datasets/
+docs/
+logs/
+log_module/
+output*/
+*.txt
+Relatedwork/
+Mermaid/
+results*/
+interface*/

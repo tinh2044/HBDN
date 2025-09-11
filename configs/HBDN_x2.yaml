@@ -1,0 +1,45 @@
+data:
+  root: "./datasets/DF2K/"
+  train_dir: "train"
+  test_dir: "test"
+  input_dir: "LR_bicubic/X2"
+  target_dir: "HR"  
+  image_size: 256
+  batch_size: 4
+  num_workers: 4
+  max_len: 1  
+
+model:
+  in_nc: 3
+  nf: 80
+  num_modules: 12
+  out_nc: 3
+  upscale: 2
+  s_splits: [20, 12, 8]
+  sag_hidden: 8
+  act_type: "lrelu"
+  
+loss_weight:
+      l1: 1.0             
+      perc: 0.0          
+      ssim: 0.0         
+      grad: 0.0              
+
+training:
+  model_dir: "./outputs_HBDN_x2"
+
+  optimization:
+    optimizer:
+      name: "Adam"
+      lr: 0.0002        
+      weight_decay: 0.0
+      betas: [0.9, 0.999]
+
+    scheduler:
+      name: "CosineAnnealingLR"
+      eta_min: 0.00001
+
+evaluation:
+  metrics: ["psnr", "ssim", "lpips"]
+  save_images: true
+  save_high_res: false 
